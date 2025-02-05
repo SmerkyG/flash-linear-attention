@@ -67,12 +67,12 @@ class RWKV6FeedForward(nn.Module):
     ) -> torch.Tensor:
         if attention_mask is not None:
             x = x.mul_(attention_mask[:, -x.shape[-2]:, None])
-        if x.shape[1] == 1 and state is not None:
+        if x.shape[1] == 1 and state is not None  and state[self.layer_idx]['ffn_state'] is not None:
             shifted = state[self.layer_idx]['ffn_state'].unsqueeze(1)
         else:
             shifted = self.time_shift(x)
             if state is not None and state[self.layer_idx]['ffn_state'] is not None:
-                shifted[:, 0] = state[self.layer_idx]['ffn_state'][-1]
+                shifted[:, 0] = state[self.layer_idx]['ffn_state']
         delta = shifted - x
         key = self.act_fn(self.key(x, delta))
         value = self.value(key)
@@ -364,7 +364,7 @@ class RWKV6ForCausalLM(RWKV6PreTrainedModel, GenerationMixin):
         **kwargs
     ):
         # only last token for `inputs_ids` if the `past_key_values` is passed along.
-        if past_key_values is not None:
+        if past_key_values is not None and len(past_key_values) > 0:
             input_ids = input_ids[:, -1:]
         # if `inputs_embeds` are passed, we only want to use them in the 1st generation step
         if inputs_embeds is not None and past_key_values is None:
